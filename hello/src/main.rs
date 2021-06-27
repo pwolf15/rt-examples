@@ -1,3 +1,4 @@
+// source: https://harmonicss.co.uk/vxworks/using-rust-with-vxworks-7/
 use std::sync::{Arc, Mutex};
 use std::thread;
 
