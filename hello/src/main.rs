@@ -1,69 +1,40 @@
-// source: https://harmonicss.co.uk/vxworks/using-rust-with-vxworks-7/
-use std::sync::{Arc, Mutex};
+use std::net::{TcpListener, TcpStream};
 use std::thread;
+use std::io::Read;
+use std::io::Write;
 
-struct Philosopher {
-    name: String,
-    left: usize,
-    right: usize,
-}
-
-impl Philosopher {
-    fn new(name: &str, left: usize, right: usize) -> Philosopher {
-        Philosopher {
-            name: name.to_string(),
-            left: left,
-            right: right,
+fn handle_client(mut stream: TcpStream) {
+    // read 20 bytes at a time from stream echoing back to stream
+    loop {
+        let mut read = [0; 1028];
+        match stream.read(&mut read) {
+            Ok(n) => {
+                if n == 0 { 
+                    // connection was closed
+                    break;
+                }
+                stream.write(&read[0..n]).unwrap();
+            }
+            Err(err) => {
+                panic!(err);
+            }
         }
     }
-
-    fn eat(&self, table: &Table) {
-        let _left = table.forks[self.left].lock().unwrap();
-        let _right = table.forks[self.right].lock().unwrap();
-
-        println!("{} is eating.", self.name);
-
-        thread::sleep_ms(1000);
-
-        println!("{} is done eating.", self.name);
-    }
-}
-
-struct Table {
-    forks: Vec<Mutex<()>>,
 }
 
 fn main() {
-    let table = Arc::new(Table {
-        forks: vec![
-            Mutex::new(()),
-            Mutex::new(()),
-            Mutex::new(()),
-            Mutex::new(()),
-            Mutex::new(()),
-        ],
-    });
+    let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
 
-    let philosophers = vec![
-        Philosopher::new("Donald", 0, 1),
-        Philosopher::new("Larry", 1, 2),
-        Philosopher::new("Mark", 2, 3),
-        Philosopher::new("John", 3, 4),
-        Philosopher::new("Bruce", 0, 4),
-    ];
-
-    let handles: Vec<_> = philosophers
-        .into_iter()
-        .map(|p| {
-            let table = table.clone();
-
-            thread::spawn(move || {
-                p.eat(&table);
-            })
-        })
-        .collect();
-
-    for h in handles {
-        h.join().unwrap();
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                thread::spawn(move || {
+                    handle_client(stream);
+                });
+            }
+            Err(_) => {
+                println!("Error");
+            }
+        }
     }
 }
